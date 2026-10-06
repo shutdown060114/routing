@@ -7,15 +7,10 @@ date_default_timezone_set($GLOBALS['config']['app']['timezone'] ?? 'UTC');
 spl_autoload_register(function (string $class): void {
     $prefix = 'App\\';
     if (!str_starts_with($class, $prefix)) return;
+
     $relative = substr($class, strlen($prefix));
-    $parts = explode('\\', $relative);
-    $base = array_shift($parts);
-    $map = [
-        'Core' => __DIR__ . '/src/Core/',
-        'Controllers' => __DIR__ . '/app/Controllers/',
-    ];
-    if (!isset($map[$base])) return;
-    $file = $map[$base] . implode('/', $parts) . '.php';
+    $file = __DIR__ . '/app/' . str_replace('\\', '/', $relative) . '.php';
+
     if (is_file($file)) require $file;
 });
 
