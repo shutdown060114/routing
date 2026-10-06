@@ -1,6 +1,7 @@
 <?php
 namespace App\Core;
 
+use App\Models\RouteDefinition;
 use PDO;
 
 final class Router
@@ -24,9 +25,7 @@ final class Router
 
     public function loadDatabaseRoutes(PDO $pdo): void
     {
-        $rows = $pdo->query("SELECT method,path,target_type,target_value,permission FROM routes WHERE enabled=1 ORDER BY id")->fetchAll();
-
-        foreach ($rows as $row) {
+        foreach ((new RouteDefinition($pdo))->enabled() as $row) {
             $handler = match ($row['target_type']) {
                 'panel' => [\App\Controllers\PanelController::class, 'dynamicAlias'],
                 'workflow' => [\App\Controllers\WorkflowController::class, 'dynamicAlias'],
@@ -69,10 +68,7 @@ final class Router
                 return;
             }
 
-            if (isset($route['target_value'])) {
-                $params['_target'] = $route['target_value'];
-            }
-
+            if (isset($route['target_value'])) $params['_target'] = $route['target_value'];
             $this->invoke($route['handler'], $params);
             return;
         }
@@ -90,7 +86,6 @@ final class Router
         }, rtrim($pattern, '/') ?: '/');
 
         if (!preg_match('#^' . $regex . '/?$#', $path, $matches)) return null;
-
         array_shift($matches);
         return array_combine($names, array_map('urldecode', $matches)) ?: [];
     }
@@ -102,7 +97,6 @@ final class Router
             $controller->{$handler[1]}($params);
             return;
         }
-
         $handler($params);
     }
 }
