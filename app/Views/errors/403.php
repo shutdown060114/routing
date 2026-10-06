@@ -1,0 +1,1 @@
+<section class="empty-state"><div class="eyebrow">403</div><h1>Access denied</h1><p>You do not have permission to access this resource.</p><a class="btn primary" href="<?= e(url('/')) ?>">Back to Dashboard</a></section>
