@@ -1,0 +1,1 @@
+<section class="empty-state"><div class="eyebrow">404</div><h1>Page not found</h1><p>The page or dynamic route could not be found.</p><a class="btn primary" href="<?= e(url('/')) ?>">Back to Dashboard</a></section>
