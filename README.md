@@ -1,73 +1,108 @@
-# Dynamic Routing, Panel & Workflow System
+# Dynamic Routing + Workflow MVC System
 
-PHP + MySQL starter system with database-driven routing, dynamic panels, workflows, RBAC, and audit logs.
+PHP + MySQL MVC starter application with database-driven routing, dynamic panels, configurable workflows, RBAC, and audit logs.
 
-## Main features
+## Architecture
 
-- Clean URL router with route parameters
-- Database-driven route aliases
-- Dynamic panels and form fields stored in MySQL
-- Dynamic workflow definitions, steps, and transitions
-- User roles and permissions
-- `developer` role bypasses all permission checks
-- Session authentication with `password_hash()` / `password_verify()`
-- CSRF protection for POST actions
+```text
+routing/
+├── app/
+│   ├── Controllers/        # HTTP request handlers
+│   ├── Models/             # Database queries and persistence
+│   ├── Views/              # Presentation/templates only
+│   ├── Core/               # Router, DB connection, auth, RBAC, CSRF, view renderer
+│   └── Services/           # Business logic for panels, workflows, auditing
+├── config/
+│   └── config.php
+├── database/
+│   └── schema.sql
+├── public/
+│   ├── index.php           # Front Controller
+│   ├── .htaccess
+│   └── assets/
+├── routes/
+│   └── web.php
+├── scripts/
+│   └── create_developer.php
+└── bootstrap.php
+```
+
+The old `src/Core` structure has been retired. Application classes now live under `app/` to keep the MVC boundaries clear.
+
+## Features
+
+- Front-controller routing through `public/index.php`
+- Static routes in `routes/web.php`
+- Dynamic database routes stored in `routes`
+- Dynamic database-driven panels and form fields
+- Dynamic workflows, steps, transitions, history, and permissions
+- User roles and granular permissions
+- `developer` role has trusted full-access bypass
+- Session login using `password_hash()` and `password_verify()`
+- CSRF protection for POST requests
 - Audit logs
-- Responsive admin dashboard
+- Responsive admin interface
 
-## Requirements
+## Install using XAMPP
 
-- PHP 8.1+
-- MySQL 8 / MariaDB 10.4+
-- Apache with `mod_rewrite`
-- PDO MySQL extension
+1. Clone into:
 
-## Install with XAMPP
+```text
+C:\xampp\htdocs\routing
+```
 
-1. Clone this repository into `C:\xampp\htdocs\routing`.
-2. Create a MySQL database named `routing_system`.
-3. Import `database/schema.sql` in phpMyAdmin.
-4. Edit `config/config.php` if your MySQL username/password is different.
-5. Run from the project folder:
+2. Import:
+
+```text
+database/schema.sql
+```
+
+3. Check MySQL settings in `config/config.php`.
+
+4. Create your first developer account:
 
 ```bash
 php scripts/create_developer.php developer developer@example.com YourStrongPassword
 ```
 
-6. Point Apache to the `public` folder, or open:
+5. Open:
 
 ```text
 http://localhost/routing/public/
 ```
 
-## Default architecture
+## MVC responsibilities
+
+**Controllers** receive requests, validate access, call Models/Services, and select Views. They should not contain SQL.
+
+**Models** contain database queries and persistence logic.
+
+**Views** render HTML only and receive prepared data from Controllers.
+
+**Services** contain reusable business rules such as workflow transitions and dynamic-panel operations.
+
+**Core** contains framework infrastructure such as routing, authentication, authorization, CSRF, database connection, and rendering.
+
+## Roles
+
+Starter roles:
+
+- `developer` — unrestricted trusted access through the RBAC bypass
+- `admin` — all seeded permissions
+- `approver` — workflow review/action access
+- `user` — standard panel and workflow submission access
+
+## Dynamic routes
+
+Database route examples seeded by `schema.sql`:
 
 ```text
-app/Controllers/     Controllers
-config/              Application/database config
-database/            SQL schema and starter data
-public/              Web root
-routes/              Static application routes
-scripts/             CLI setup tools
-src/Core/            Router, auth, RBAC, workflow engine, etc.
-views/               PHP views
+/requests            -> panel: service-requests
+/document-approval   -> workflow: document-approval
 ```
 
-## Developer role
+New aliases can be added through the routes table without modifying `routes/web.php`.
 
-The `developer` role has full system access in `Rbac::can()` even if a permission was not explicitly assigned. Use this role only for trusted system developers/administrators.
+## Production hardening
 
-## Dynamic routing
-
-Rows in the `routes` table can create URL aliases without editing PHP source. A dynamic route can target a panel or workflow definition.
-
-Example:
-
-```text
-/service-requests -> panel: service-requests
-/document-approval -> workflow: document-approval
-```
-
-## Security note
-
-This repository is a solid starter, but before internet-facing production deployment you should add HTTPS, secure cookie settings, rate limiting, password reset/email verification, stricter validation, centralized exception logging, and deployment-specific secret management.
+Before public deployment, configure HTTPS, secure session cookie flags, environment-based secrets, rate limiting, login throttling, password reset/email verification, database backups, centralized exception logging, and stricter validation for every dynamic field type.
