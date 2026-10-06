@@ -4,6 +4,10 @@ namespace App\Controllers;
 use App\Core\Auth;
 use App\Core\Rbac;
 use App\Core\View;
+use App\Models\Panel;
+use App\Models\RouteDefinition;
+use App\Models\User;
+use App\Models\Workflow;
 
 final class DashboardController
 {
@@ -11,21 +15,25 @@ final class DashboardController
     {
         Auth::requireLogin();
 
-        $panels = $GLOBALS['pdo']->query("SELECT name,slug,icon,view_permission FROM panels WHERE enabled=1 ORDER BY sort_order,id")->fetchAll();
-        $panels = array_values(array_filter($panels, fn($p) => !$p['view_permission'] || Rbac::can($p['view_permission'])));
+        $panelModel = new Panel($GLOBALS['pdo']);
+        $workflowModel = new Workflow($GLOBALS['pdo']);
+        $userModel = new User($GLOBALS['pdo']);
+        $routeModel = new RouteDefinition($GLOBALS['pdo']);
 
-        $workflows = $GLOBALS['pdo']->query("SELECT name,slug,description FROM workflows WHERE enabled=1 ORDER BY name")->fetchAll();
-        $stats = [
-            'users' => (int)$GLOBALS['pdo']->query("SELECT COUNT(*) FROM users WHERE is_active=1")->fetchColumn(),
-            'active_workflows' => (int)$GLOBALS['pdo']->query("SELECT COUNT(*) FROM workflow_instances WHERE status='active'")->fetchColumn(),
-            'routes' => (int)$GLOBALS['pdo']->query("SELECT COUNT(*) FROM routes WHERE enabled=1")->fetchColumn(),
-        ];
+        $panels = array_values(array_filter(
+            $panelModel->visiblePanels(),
+            fn(array $panel) => !$panel['view_permission'] || Rbac::can($panel['view_permission'])
+        ));
 
         View::render('dashboard', [
             'title' => 'Dashboard',
             'panels' => $panels,
-            'workflows' => $workflows,
-            'stats' => $stats,
+            'workflows' => $workflowModel->allEnabled(),
+            'stats' => [
+                'users' => $userModel->countActive(),
+                'active_workflows' => $workflowModel->countActiveInstances(),
+                'routes' => $routeModel->countEnabled(),
+            ],
         ]);
     }
 }
