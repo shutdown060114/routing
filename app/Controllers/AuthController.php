@@ -2,9 +2,9 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
-use App\Core\Audit;
 use App\Core\Csrf;
 use App\Core\View;
+use App\Services\AuditService;
 
 final class AuthController
 {
@@ -18,10 +18,10 @@ final class AuthController
     {
         Csrf::validate();
         $username = trim($_POST['username'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $password = (string)($_POST['password'] ?? '');
 
-        if (Auth::attempt($GLOBALS['pdo'], $username, $password)) {
-            Audit::log('auth.login', 'user', Auth::id());
+        if (Auth::attempt($username, $password)) {
+            AuditService::log('auth.login', 'user', Auth::id());
             redirect('/');
         }
 
@@ -35,7 +35,7 @@ final class AuthController
     public function logout(): void
     {
         Csrf::validate();
-        if (Auth::id()) Audit::log('auth.logout', 'user', Auth::id());
+        if (Auth::id()) AuditService::log('auth.logout', 'user', Auth::id());
         Auth::logout();
         redirect('/login');
     }
