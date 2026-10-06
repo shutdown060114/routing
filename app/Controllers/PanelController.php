@@ -1,0 +1,75 @@
+<?php
+namespace App\Controllers;
+
+use App\Core\Auth;
+use App\Core\Audit;
+use App\Core\Csrf;
+use App\Core\DynamicPanel;
+use App\Core\Rbac;
+use App\Core\View;
+
+final class PanelController
+{
+    public function show(array $params): void
+    {
+        Auth::requireLogin();
+        $this->renderPanel($params['slug']);
+    }
+
+    public function dynamicAlias(array $params): void
+    {
+        Auth::requireLogin();
+        $this->renderPanel($params['_target']);
+    }
+
+    public function store(array $params): void
+    {
+        Auth::requireLogin();
+        Csrf::validate();
+
+        $panel = DynamicPanel::definition($GLOBALS['pdo'], $params['slug']);
+        if (!$panel) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Panel not found']);
+            return;
+        }
+
+        if ($panel['create_permission'] && !Rbac::can($panel['create_permission'])) {
+            http_response_code(403);
+            View::render('errors/403', ['title' => 'Access denied']);
+            return;
+        }
+
+        try {
+            $id = DynamicPanel::create($GLOBALS['pdo'], $panel, $_POST);
+            Audit::log('panel.create', $panel['source_table'], $id, ['panel' => $panel['slug']]);
+            $_SESSION['flash'] = ['type' => 'success', 'message' => $panel['name'] . ' record created.'];
+        } catch (\Throwable $e) {
+            $_SESSION['flash'] = ['type' => 'error', 'message' => $e->getMessage()];
+        }
+        redirect('/panel/' . rawurlencode($params['slug']));
+    }
+
+    private function renderPanel(string $slug): void
+    {
+        $panel = DynamicPanel::definition($GLOBALS['pdo'], $slug);
+        if (!$panel) {
+            http_response_code(404);
+            View::render('errors/404', ['title' => 'Panel not found']);
+            return;
+        }
+
+        if ($panel['view_permission'] && !Rbac::can($panel['view_permission'])) {
+            http_response_code(403);
+            View::render('errors/403', ['title' => 'Access denied']);
+            return;
+        }
+
+        View::render('panel/show', [
+            'title' => $panel['name'],
+            'panel' => $panel,
+            'rows' => DynamicPanel::rows($GLOBALS['pdo'], $panel),
+            'canCreate' => !$panel['create_permission'] || Rbac::can($panel['create_permission']),
+        ]);
+    }
+}
