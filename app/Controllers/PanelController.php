@@ -2,14 +2,20 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
-use App\Core\Audit;
 use App\Core\Csrf;
-use App\Core\DynamicPanel;
 use App\Core\Rbac;
 use App\Core\View;
+use App\Models\Panel;
+use App\Services\AuditService;
+use App\Services\PanelService;
 
 final class PanelController
 {
+    private function service(): PanelService
+    {
+        return new PanelService(new Panel($GLOBALS['pdo']));
+    }
+
     public function show(array $params): void
     {
         Auth::requireLogin();
@@ -27,7 +33,9 @@ final class PanelController
         Auth::requireLogin();
         Csrf::validate();
 
-        $panel = DynamicPanel::definition($GLOBALS['pdo'], $params['slug']);
+        $service = $this->service();
+        $panel = $service->definition($params['slug']);
+
         if (!$panel) {
             http_response_code(404);
             View::render('errors/404', ['title' => 'Panel not found']);
@@ -41,18 +49,21 @@ final class PanelController
         }
 
         try {
-            $id = DynamicPanel::create($GLOBALS['pdo'], $panel, $_POST);
-            Audit::log('panel.create', $panel['source_table'], $id, ['panel' => $panel['slug']]);
+            $id = $service->create($panel, $_POST);
+            AuditService::log('panel.create', $panel['source_table'], $id, ['panel' => $panel['slug']]);
             $_SESSION['flash'] = ['type' => 'success', 'message' => $panel['name'] . ' record created.'];
         } catch (\Throwable $e) {
             $_SESSION['flash'] = ['type' => 'error', 'message' => $e->getMessage()];
         }
+
         redirect('/panel/' . rawurlencode($params['slug']));
     }
 
     private function renderPanel(string $slug): void
     {
-        $panel = DynamicPanel::definition($GLOBALS['pdo'], $slug);
+        $service = $this->service();
+        $panel = $service->definition($slug);
+
         if (!$panel) {
             http_response_code(404);
             View::render('errors/404', ['title' => 'Panel not found']);
@@ -68,7 +79,7 @@ final class PanelController
         View::render('panel/show', [
             'title' => $panel['name'],
             'panel' => $panel,
-            'rows' => DynamicPanel::rows($GLOBALS['pdo'], $panel),
+            'rows' => $service->rows($panel),
             'canCreate' => !$panel['create_permission'] || Rbac::can($panel['create_permission']),
         ]);
     }
