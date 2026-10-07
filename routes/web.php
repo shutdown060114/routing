@@ -1,6 +1,7 @@
 <?php
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\PanelBuilderController;
 use App\Controllers\PanelController;
 use App\Controllers\WorkflowController;
 
@@ -9,8 +10,12 @@ $router->get('/login', [AuthController::class, 'loginForm']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->post('/logout', [AuthController::class, 'logout']);
 
-$router->get('/panel/{slug}', [PanelController::class, 'show'], 'panel.view');
-$router->post('/panel/{slug}', [PanelController::class, 'store'], 'panel.create');
+// Panel access is enforced per panel by user/role access rules.
+$router->get('/panel/{slug}', [PanelController::class, 'show']);
+$router->post('/panel/{slug}', [PanelController::class, 'store']);
+
+$router->get('/developer/panels/create', [PanelBuilderController::class, 'create']);
+$router->post('/developer/panels', [PanelBuilderController::class, 'store']);
 
 $router->get('/workflows', [WorkflowController::class, 'index'], 'workflow.view');
 $router->get('/workflow/{slug}', [WorkflowController::class, 'definition'], 'workflow.view');
