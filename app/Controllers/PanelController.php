@@ -7,8 +7,10 @@ use App\Core\Rbac;
 use App\Core\View;
 use App\Models\Panel;
 use App\Models\PanelAccess;
+use App\Models\Workflow;
 use App\Services\AuditService;
 use App\Services\PanelService;
+use App\Services\WorkflowService;
 
 final class PanelController
 {
@@ -57,7 +59,20 @@ final class PanelController
         try {
             $id = $service->create($panel, $_POST);
             AuditService::log('panel.create', $panel['source_table'], $id, ['panel' => $panel['slug']]);
-            $_SESSION['flash'] = ['type' => 'success', 'message' => $panel['name'] . ' record created.'];
+
+            if (!empty($panel['workflow_slug'])) {
+                $workflowService = new WorkflowService(new Workflow($GLOBALS['pdo']));
+                $workflow = $workflowService->definition($panel['workflow_slug']);
+                if ($workflow) {
+                    $workflowService->start(
+                        (int)$workflow['id'],
+                        $panel['name'] . ' #' . $id,
+                        ['panel_slug' => $panel['slug'], 'record_id' => $id]
+                    );
+                }
+            }
+
+            $_SESSION['flash'] = ['type' => 'success', 'message' => $panel['name'] . ' record created' . (!empty($panel['workflow_slug']) ? ' and workflow started.' : '.')];
         } catch (\Throwable $e) {
             $_SESSION['flash'] = ['type' => 'error', 'message' => $e->getMessage()];
         }
