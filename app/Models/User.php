@@ -21,6 +21,11 @@ final class User
         return $stmt->fetch() ?: null;
     }
 
+    public function allActive(): array
+    {
+        return $this->pdo->query("SELECT id,username,email,display_name FROM users WHERE is_active=1 ORDER BY COALESCE(display_name,username),username")->fetchAll();
+    }
+
     public function countActive(): int
     {
         return (int)$this->pdo->query("SELECT COUNT(*) FROM users WHERE is_active=1")->fetchColumn();
