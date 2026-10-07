@@ -31,7 +31,7 @@ unset($_SESSION['panel_builder_old']);
         <label>
             <span>Access Mode</span>
             <select name="access_mode" id="accessMode">
-                <option value="restricted" selected>Restricted to selected users / roles</option>
+                <option value="restricted">Restricted to selected users / roles</option>
                 <option value="all">All authenticated users</option>
             </select>
         </label>
@@ -77,11 +77,11 @@ Approved</textarea>
 <template id="fieldTemplate">
     <div class="section-block builder-field-row" style="padding:16px;margin-bottom:0">
         <div class="form-grid two-col">
-            <label><span>Label</span><input required name="field_label[]" class="field-label" placeholder="Requester Name"></label>
-            <label><span>Database Field</span><input required name="field_name[]" class="field-name" placeholder="requester_name"></label>
+            <label><span>Label</span><input required class="field-label" placeholder="Requester Name"></label>
+            <label><span>Database Field</span><input required class="field-name" placeholder="requester_name"></label>
             <label>
                 <span>Type</span>
-                <select name="field_type[]" class="field-type">
+                <select class="field-type">
                     <option value="text">Text</option>
                     <option value="textarea">Textarea</option>
                     <option value="number">Number</option>
@@ -90,8 +90,8 @@ Approved</textarea>
                     <option value="select">Select</option>
                 </select>
             </label>
-            <label class="field-options-wrap" style="display:none"><span>Select Options</span><input name="field_options[]" placeholder="New, Processing, Completed"></label>
-            <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px"><input type="checkbox" name="field_required[]" class="field-required" value="1" style="width:auto"><span>Required</span></label>
+            <label class="field-options-wrap" style="display:none"><span>Select Options</span><input class="field-options" placeholder="New, Processing, Completed"></label>
+            <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px"><input type="checkbox" class="field-required" value="1" style="width:auto"><span>Required</span></label>
             <div><button type="button" class="btn remove-field">Remove</button></div>
         </div>
     </div>
@@ -109,6 +109,7 @@ Approved</textarea>
     const roleAccess = document.getElementById('roleAccess');
     const workflow = document.getElementById('enableWorkflow');
     const workflowWrap = document.getElementById('workflowStepsWrap');
+    let fieldKey = 0;
 
     const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const fieldify = value => {
@@ -122,15 +123,25 @@ Approved</textarea>
     name.addEventListener('input', () => { if (!slugTouched) slug.value = slugify(name.value); });
 
     function addField(label = '', fieldName = '', type = 'text') {
+        const key = fieldKey++;
         const node = template.content.firstElementChild.cloneNode(true);
         const labelInput = node.querySelector('.field-label');
         const nameInput = node.querySelector('.field-name');
         const typeInput = node.querySelector('.field-type');
+        const optionsInput = node.querySelector('.field-options');
+        const requiredInput = node.querySelector('.field-required');
         const optionsWrap = node.querySelector('.field-options-wrap');
         let nameTouched = fieldName !== '';
+
+        labelInput.name = `field_label[${key}]`;
+        nameInput.name = `field_name[${key}]`;
+        typeInput.name = `field_type[${key}]`;
+        optionsInput.name = `field_options[${key}]`;
+        requiredInput.name = `field_required[${key}]`;
         labelInput.value = label;
         nameInput.value = fieldName;
         typeInput.value = type;
+
         labelInput.addEventListener('input', () => { if (!nameTouched) nameInput.value = fieldify(labelInput.value); });
         nameInput.addEventListener('input', () => nameTouched = true);
         typeInput.addEventListener('change', () => optionsWrap.style.display = typeInput.value === 'select' ? 'grid' : 'none');
