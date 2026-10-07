@@ -2,12 +2,15 @@
 use App\Core\Csrf;
 $old = $_SESSION['panel_builder_old'] ?? [];
 unset($_SESSION['panel_builder_old']);
+$selectedUsers = array_map('intval', $old['user_ids'] ?? []);
+$selectedRoles = array_map('intval', $old['role_ids'] ?? []);
+$accessModeValue = ($old['access_mode'] ?? 'restricted') === 'all' ? 'all' : 'restricted';
 ?>
 <div class="page-heading">
     <div>
         <span class="eyebrow">DEVELOPER TOOLS</span>
         <h1>Create Dynamic Panel</h1>
-        <p>Create a panel, database table, access rules, route, and optional workflow from one screen.</p>
+        <p>Create a panel, database table, simple access rules, route, and optional workflow from one screen.</p>
     </div>
 </div>
 
@@ -26,45 +29,73 @@ unset($_SESSION['panel_builder_old']);
     <div class="section-title" style="margin-top:28px"><h2>Panel Fields</h2><button type="button" class="btn" id="addFieldBtn">+ Add Field</button></div>
     <div id="fieldRows" class="form-grid"></div>
 
-    <div class="section-title" style="margin-top:28px"><h2>Access</h2><span>Specific users and roles</span></div>
-    <div class="form-grid two-col">
-        <label>
-            <span>Access Mode</span>
-            <select name="access_mode" id="accessMode">
-                <option value="restricted">Restricted to selected users / roles</option>
-                <option value="all">All authenticated users</option>
-            </select>
+    <div class="section-title" style="margin-top:28px"><h2>Easy Access</h2><span>Choose who can open this panel</span></div>
+
+    <div class="card-grid" style="margin-bottom:18px">
+        <label class="module-card" style="cursor:pointer">
+            <span style="display:flex;align-items:center;gap:10px">
+                <input type="radio" name="access_mode" value="all" <?= $accessModeValue === 'all' ? 'checked' : '' ?> style="width:auto">
+                <strong>Everyone</strong>
+            </span>
+            <span>All logged-in users can open and use this panel.</span>
         </label>
-        <div></div>
-        <label>
-            <span>Allowed Users</span>
-            <select name="user_ids[]" id="userAccess" multiple size="8">
-                <?php foreach ($users as $user): ?>
-                    <option value="<?= (int)$user['id'] ?>"><?= e(($user['display_name'] ?: $user['username']) . ' — ' . $user['email']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </label>
-        <label>
-            <span>Allowed Roles</span>
-            <select name="role_ids[]" id="roleAccess" multiple size="8">
-                <?php foreach ($roles as $role): ?>
-                    <option value="<?= (int)$role['id'] ?>"><?= e($role['name'] . ' (' . $role['slug'] . ')') ?></option>
-                <?php endforeach; ?>
-            </select>
+
+        <label class="module-card" style="cursor:pointer">
+            <span style="display:flex;align-items:center;gap:10px">
+                <input type="radio" name="access_mode" value="restricted" <?= $accessModeValue === 'restricted' ? 'checked' : '' ?> style="width:auto">
+                <strong>Specific Users / Roles</strong>
+            </span>
+            <span>Only the users or roles you check below can access it.</span>
         </label>
     </div>
+
+    <div id="restrictedAccess" class="form-grid two-col" <?= $accessModeValue === 'all' ? 'style="display:none"' : '' ?>>
+        <div class="section-block" style="margin:0;padding:18px">
+            <div class="section-title"><h2 style="font-size:16px">Users</h2><span>Check allowed users</span></div>
+            <div class="form-grid">
+                <?php if ($users): ?>
+                    <?php foreach ($users as $user): ?>
+                        <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px;border:1px solid #e3e8f0;border-radius:8px;padding:10px 12px">
+                            <input type="checkbox" name="user_ids[]" value="<?= (int)$user['id'] ?>" <?= in_array((int)$user['id'], $selectedUsers, true) ? 'checked' : '' ?> style="width:auto">
+                            <span>
+                                <?= e($user['display_name'] ?: $user['username']) ?>
+                                <small style="display:block;color:#8290a3;font-weight:400"><?= e($user['email']) ?></small>
+                            </span>
+                        </label>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="muted">No users available yet.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="section-block" style="margin:0;padding:18px">
+            <div class="section-title"><h2 style="font-size:16px">Roles</h2><span>Check allowed roles</span></div>
+            <div class="form-grid">
+                <?php foreach ($roles as $role): ?>
+                    <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px;border:1px solid #e3e8f0;border-radius:8px;padding:10px 12px">
+                        <input type="checkbox" name="role_ids[]" value="<?= (int)$role['id'] ?>" <?= in_array((int)$role['id'], $selectedRoles, true) ? 'checked' : '' ?> style="width:auto">
+                        <span>
+                            <?= e($role['name']) ?>
+                            <small style="display:block;color:#8290a3;font-weight:400"><?= e($role['slug']) ?></small>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
+    <p class="muted" style="margin-top:12px">Developer accounts always have full access automatically.</p>
 
     <div class="section-title" style="margin-top:28px"><h2>Workflow</h2><span>Optional automatic workflow</span></div>
     <div class="form-grid">
         <label style="display:flex;grid-template-columns:auto 1fr;align-items:center;gap:10px">
-            <input type="checkbox" name="enable_workflow" id="enableWorkflow" value="1" style="width:auto">
+            <input type="checkbox" name="enable_workflow" id="enableWorkflow" value="1" <?= !empty($old['enable_workflow']) ? 'checked' : '' ?> style="width:auto">
             <span>Generate a workflow for this panel</span>
         </label>
-        <label id="workflowStepsWrap" style="display:none">
+        <label id="workflowStepsWrap" <?= empty($old['enable_workflow']) ? 'style="display:none"' : '' ?>>
             <span>Workflow Steps — one per line</span>
-            <textarea name="workflow_steps">Submitted
-For Review
-Approved</textarea>
+            <textarea name="workflow_steps"><?= e($old['workflow_steps'] ?? "Submitted\nFor Review\nApproved") ?></textarea>
         </label>
     </div>
 
@@ -104,9 +135,8 @@ Approved</textarea>
     const addBtn = document.getElementById('addFieldBtn');
     const name = document.getElementById('panelName');
     const slug = document.getElementById('panelSlug');
-    const accessMode = document.getElementById('accessMode');
-    const userAccess = document.getElementById('userAccess');
-    const roleAccess = document.getElementById('roleAccess');
+    const accessRadios = document.querySelectorAll('input[name="access_mode"]');
+    const restrictedAccess = document.getElementById('restrictedAccess');
     const workflow = document.getElementById('enableWorkflow');
     const workflowWrap = document.getElementById('workflowStepsWrap');
     let fieldKey = 0;
@@ -153,11 +183,13 @@ Approved</textarea>
     addField('Title', 'title', 'text');
     addField('Description', 'description', 'textarea');
 
-    accessMode.addEventListener('change', () => {
-        const disabled = accessMode.value === 'all';
-        userAccess.disabled = disabled;
-        roleAccess.disabled = disabled;
-    });
+    function updateAccessVisibility() {
+        const selected = document.querySelector('input[name="access_mode"]:checked');
+        restrictedAccess.style.display = selected && selected.value === 'all' ? 'none' : 'grid';
+    }
+
+    accessRadios.forEach(radio => radio.addEventListener('change', updateAccessVisibility));
+    updateAccessVisibility();
 
     workflow.addEventListener('change', () => workflowWrap.style.display = workflow.checked ? 'grid' : 'none');
 })();
