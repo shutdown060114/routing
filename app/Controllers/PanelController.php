@@ -6,6 +6,7 @@ use App\Core\Csrf;
 use App\Core\Rbac;
 use App\Core\View;
 use App\Models\Panel;
+use App\Models\PanelAccess;
 use App\Services\AuditService;
 use App\Services\PanelService;
 
@@ -14,6 +15,11 @@ final class PanelController
     private function service(): PanelService
     {
         return new PanelService(new Panel($GLOBALS['pdo']));
+    }
+
+    private function access(): PanelAccess
+    {
+        return new PanelAccess($GLOBALS['pdo']);
     }
 
     public function show(array $params): void
@@ -42,7 +48,7 @@ final class PanelController
             return;
         }
 
-        if ($panel['create_permission'] && !Rbac::can($panel['create_permission'])) {
+        if (!$this->canCreate($panel)) {
             http_response_code(403);
             View::render('errors/403', ['title' => 'Access denied']);
             return;
@@ -70,7 +76,7 @@ final class PanelController
             return;
         }
 
-        if ($panel['view_permission'] && !Rbac::can($panel['view_permission'])) {
+        if (!$this->canView($panel)) {
             http_response_code(403);
             View::render('errors/403', ['title' => 'Access denied']);
             return;
@@ -80,7 +86,21 @@ final class PanelController
             'title' => $panel['name'],
             'panel' => $panel,
             'rows' => $service->rows($panel),
-            'canCreate' => !$panel['create_permission'] || Rbac::can($panel['create_permission']),
+            'canCreate' => $this->canCreate($panel),
         ]);
+    }
+
+    private function canView(array $panel): bool
+    {
+        if (Rbac::hasRole('developer')) return true;
+        if ($panel['view_permission'] && !Rbac::can($panel['view_permission'])) return false;
+        return $this->access()->userCanView((int)$panel['id'], (int)Auth::id());
+    }
+
+    private function canCreate(array $panel): bool
+    {
+        if (Rbac::hasRole('developer')) return true;
+        if ($panel['create_permission'] && !Rbac::can($panel['create_permission'])) return false;
+        return $this->access()->userCanCreate((int)$panel['id'], (int)Auth::id());
     }
 }
