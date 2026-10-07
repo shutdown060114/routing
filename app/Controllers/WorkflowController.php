@@ -3,7 +3,9 @@ namespace App\Controllers;
 
 use App\Core\Auth;
 use App\Core\Csrf;
+use App\Core\Rbac;
 use App\Core\View;
+use App\Models\PanelAccess;
 use App\Models\Workflow;
 use App\Services\WorkflowService;
 
@@ -14,24 +16,42 @@ final class WorkflowController
         return new WorkflowService(new Workflow($GLOBALS['pdo']));
     }
 
+    private function panelAccess(): PanelAccess
+    {
+        return new PanelAccess($GLOBALS['pdo']);
+    }
+
     public function index(): void
     {
         Auth::requireLogin();
+        $workflows = array_values(array_filter(
+            $this->service()->allEnabled(),
+            fn(array $workflow) => $this->canViewWorkflow($workflow['slug'])
+        ));
+
         View::render('workflow/index', [
             'title' => 'Workflows',
-            'workflows' => $this->service()->allEnabled(),
+            'workflows' => $workflows,
         ]);
     }
 
     public function definition(array $params): void
     {
         Auth::requireLogin();
+        if (!$this->canViewWorkflow($params['slug'])) {
+            $this->deny();
+            return;
+        }
         $this->renderDefinition($params['slug']);
     }
 
     public function dynamicAlias(array $params): void
     {
         Auth::requireLogin();
+        if (!$this->canViewWorkflow($params['_target'])) {
+            $this->deny();
+            return;
+        }
         $this->renderDefinition($params['_target']);
     }
 
@@ -39,6 +59,11 @@ final class WorkflowController
     {
         Auth::requireLogin();
         Csrf::validate();
+
+        if (!$this->canStartWorkflow($params['slug'])) {
+            $this->deny();
+            return;
+        }
 
         $service = $this->service();
         $workflow = $service->definition($params['slug']);
@@ -73,6 +98,11 @@ final class WorkflowController
             return;
         }
 
+        if (!$this->canViewWorkflow($instance['workflow_slug'])) {
+            $this->deny();
+            return;
+        }
+
         View::render('workflow/instance', [
             'title' => $instance['title'],
             'instance' => $instance,
@@ -84,8 +114,15 @@ final class WorkflowController
         Auth::requireLogin();
         Csrf::validate();
 
+        $service = $this->service();
+        $instance = $service->instance((int)$params['id']);
+        if (!$instance || !$this->canViewWorkflow($instance['workflow_slug'])) {
+            $this->deny();
+            return;
+        }
+
         try {
-            $this->service()->transition(
+            $service->transition(
                 (int)$params['id'],
                 (int)($_POST['transition_id'] ?? 0),
                 trim((string)($_POST['comment'] ?? '')) ?: null
@@ -111,5 +148,25 @@ final class WorkflowController
             'title' => $workflow['name'],
             'workflow' => $workflow,
         ]);
+    }
+
+    private function canViewWorkflow(string $slug): bool
+    {
+        if (Rbac::hasRole('developer')) return true;
+        if (!$this->panelAccess()->userCanViewWorkflow($slug, (int)Auth::id())) return false;
+        return Rbac::can('workflow.view');
+    }
+
+    private function canStartWorkflow(string $slug): bool
+    {
+        if (Rbac::hasRole('developer')) return true;
+        if (!$this->panelAccess()->userCanActOnWorkflow($slug, (int)Auth::id())) return false;
+        return Rbac::can('workflow.start');
+    }
+
+    private function deny(): void
+    {
+        http_response_code(403);
+        View::render('errors/403', ['title' => 'Access denied']);
     }
 }
