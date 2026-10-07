@@ -25,6 +25,10 @@ unset($_SESSION['flash']);
             <?php if (Rbac::can('workflow.view')): ?>
                 <a href="<?= e(url('/workflows')) ?>">Workflows</a>
             <?php endif; ?>
+            <?php if (Rbac::hasRole('developer') || Rbac::can('panels.manage')): ?>
+                <div class="nav-label">Builder</div>
+                <a href="<?= e(url('/developer/panels/create')) ?>">+ Create Panel</a>
+            <?php endif; ?>
             <?php if (Rbac::hasRole('developer')): ?>
                 <div class="nav-label">Developer</div>
                 <a href="<?= e(url('/panel/system-routes')) ?>">Routes</a>
