@@ -7,6 +7,11 @@ final class Role
 {
     public function __construct(private PDO $pdo) {}
 
+    public function all(): array
+    {
+        return $this->pdo->query("SELECT id,name,slug,description FROM roles ORDER BY name")->fetchAll();
+    }
+
     public function slugsForUser(int $userId): array
     {
         $stmt = $this->pdo->prepare("SELECT r.slug FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=?");
