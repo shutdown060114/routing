@@ -18,6 +18,14 @@ final class PanelBuilderService
 
         if ($name === '' || $slug === '') throw new RuntimeException('Panel name and slug are required.');
 
+        if ($accessMode === 'restricted') {
+            $userIds = array_values(array_filter(array_map('intval', $input['user_ids'] ?? [])));
+            $roleIds = array_values(array_filter(array_map('intval', $input['role_ids'] ?? [])));
+            if (!$userIds && !$roleIds) {
+                throw new RuntimeException('Choose at least one user or role, or select Everyone.');
+            }
+        }
+
         $table = 'dyn_' . str_replace('-', '_', $slug);
         $this->identifier($table);
         $fields = $this->normalizeFields($input);
@@ -149,14 +157,14 @@ final class PanelBuilderService
         $userStmt = $this->pdo->prepare(
             "INSERT IGNORE INTO panel_user_access(panel_id,user_id,can_view,can_create,can_edit,can_delete) VALUES (?,?,1,1,0,0)"
         );
-        foreach (array_map('intval', $input['user_ids'] ?? []) as $userId) {
+        foreach (array_unique(array_map('intval', $input['user_ids'] ?? [])) as $userId) {
             if ($userId > 0) $userStmt->execute([$panelId, $userId]);
         }
 
         $roleStmt = $this->pdo->prepare(
             "INSERT IGNORE INTO panel_role_access(panel_id,role_id,can_view,can_create,can_edit,can_delete) VALUES (?,?,1,1,0,0)"
         );
-        foreach (array_map('intval', $input['role_ids'] ?? []) as $roleId) {
+        foreach (array_unique(array_map('intval', $input['role_ids'] ?? [])) as $roleId) {
             if ($roleId > 0) $roleStmt->execute([$panelId, $roleId]);
         }
     }
