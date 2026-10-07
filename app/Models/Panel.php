@@ -22,7 +22,7 @@ final class Panel
 
     public function visiblePanels(): array
     {
-        return $this->pdo->query("SELECT name,slug,icon,view_permission FROM panels WHERE enabled=1 ORDER BY sort_order,id")->fetchAll();
+        return $this->pdo->query("SELECT id,name,slug,icon,view_permission,access_mode,workflow_slug FROM panels WHERE enabled=1 ORDER BY sort_order,id")->fetchAll();
     }
 
     public function rows(array $panel, int $limit = 100): array
