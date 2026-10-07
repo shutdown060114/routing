@@ -17,6 +17,24 @@ final class PanelAccess
         return $this->allowed($panelId, $userId, 'can_create');
     }
 
+    public function userCanViewWorkflow(string $workflowSlug, int $userId): bool
+    {
+        $stmt = $this->pdo->prepare("SELECT id FROM panels WHERE workflow_slug=? AND enabled=1 LIMIT 1");
+        $stmt->execute([$workflowSlug]);
+        $panelId = $stmt->fetchColumn();
+        if (!$panelId) return true;
+        return $this->userCanView((int)$panelId, $userId);
+    }
+
+    public function userCanActOnWorkflow(string $workflowSlug, int $userId): bool
+    {
+        $stmt = $this->pdo->prepare("SELECT id FROM panels WHERE workflow_slug=? AND enabled=1 LIMIT 1");
+        $stmt->execute([$workflowSlug]);
+        $panelId = $stmt->fetchColumn();
+        if (!$panelId) return true;
+        return $this->userCanCreate((int)$panelId, $userId);
+    }
+
     private function allowed(int $panelId, int $userId, string $column): bool
     {
         $panel = $this->pdo->prepare("SELECT access_mode FROM panels WHERE id=? AND enabled=1 LIMIT 1");
