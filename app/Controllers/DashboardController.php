@@ -31,10 +31,19 @@ final class DashboardController
             }
         ));
 
+        $workflows = array_values(array_filter(
+            $workflowModel->allEnabled(),
+            function (array $workflow) use ($panelAccess): bool {
+                if (Rbac::hasRole('developer')) return true;
+                if (!Rbac::can('workflow.view')) return false;
+                return $panelAccess->userCanViewWorkflow($workflow['slug'], (int)Auth::id());
+            }
+        ));
+
         View::render('dashboard', [
             'title' => 'Dashboard',
             'panels' => $panels,
-            'workflows' => $workflowModel->allEnabled(),
+            'workflows' => $workflows,
             'stats' => [
                 'users' => $userModel->countActive(),
                 'active_workflows' => $workflowModel->countActiveInstances(),
