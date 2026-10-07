@@ -1,6 +1,6 @@
 # Dynamic Routing + Workflow MVC System
 
-PHP + MySQL MVC starter application with database-driven routing, dynamic panels, configurable workflows, RBAC, and audit logs.
+PHP + MySQL MVC starter application with database-driven routing, dynamic panels, configurable workflows, RBAC, per-panel access, and audit logs.
 
 ## Architecture
 
@@ -15,7 +15,9 @@ routing/
 ├── config/
 │   └── config.php
 ├── database/
-│   └── schema.sql
+│   ├── schema.sql
+│   └── migrations/
+│       └── 002_dynamic_panel_builder.sql
 ├── public/
 │   ├── index.php           # Front Controller
 │   ├── .htaccess
@@ -27,15 +29,47 @@ routing/
 └── bootstrap.php
 ```
 
-The old `src/Core` structure has been retired. Application classes now live under `app/` to keep the MVC boundaries clear.
+## Dynamic Panel Builder
+
+Developer/Admin users can open:
+
+```text
+/developer/panels/create
+```
+
+From one screen they can define:
+
+- panel name and slug
+- custom fields and field types
+- required fields
+- select options
+- specific users allowed to access the panel
+- specific roles allowed to access the panel
+- all-user or restricted access mode
+- optional workflow steps
+
+When the panel is saved, the system automatically generates:
+
+1. A physical MySQL table named `dyn_<panel_slug>`.
+2. `panels` metadata.
+3. `panel_fields` metadata.
+4. User/role access rows.
+5. A dynamic route under `/module/<slug>`.
+6. An optional workflow definition, steps, transitions and route.
+7. A workflow instance automatically whenever a new record is added to a workflow-enabled panel.
+
+The `developer` role bypasses all panel and workflow access restrictions.
 
 ## Features
 
 - Front-controller routing through `public/index.php`
 - Static routes in `routes/web.php`
 - Dynamic database routes stored in `routes`
-- Dynamic database-driven panels and form fields
+- Dynamic panel/form builder
+- Automatic database-table generation for new panels
+- Per-panel user and role access
 - Dynamic workflows, steps, transitions, history, and permissions
+- Auto-start workflow per newly created panel record
 - User roles and granular permissions
 - `developer` role has trusted full-access bypass
 - Session login using `password_hash()` and `password_verify()`
@@ -51,21 +85,27 @@ The old `src/Core` structure has been retired. Application classes now live unde
 C:\xampp\htdocs\routing
 ```
 
-2. Import:
+2. Import the base database:
 
 ```text
 database/schema.sql
 ```
 
-3. Check MySQL settings in `config/config.php`.
+3. Import the Panel Builder migration:
 
-4. Create your first developer account:
+```text
+database/migrations/002_dynamic_panel_builder.sql
+```
+
+4. Check MySQL settings in `config/config.php`.
+
+5. Create your first developer account:
 
 ```bash
 php scripts/create_developer.php developer developer@example.com YourStrongPassword
 ```
 
-5. Open:
+6. Open:
 
 ```text
 http://localhost/routing/public/
@@ -79,7 +119,7 @@ http://localhost/routing/public/
 
 **Views** render HTML only and receive prepared data from Controllers.
 
-**Services** contain reusable business rules such as workflow transitions and dynamic-panel operations.
+**Services** contain reusable business rules such as workflow transitions and panel generation.
 
 **Core** contains framework infrastructure such as routing, authentication, authorization, CSRF, database connection, and rendering.
 
@@ -88,20 +128,21 @@ http://localhost/routing/public/
 Starter roles:
 
 - `developer` — unrestricted trusted access through the RBAC bypass
-- `admin` — all seeded permissions
+- `admin` — administrative permissions including panel builder access after migration
 - `approver` — workflow review/action access
 - `user` — standard panel and workflow submission access
 
 ## Dynamic routes
 
-Database route examples seeded by `schema.sql`:
+Database route examples:
 
 ```text
-/requests            -> panel: service-requests
-/document-approval   -> workflow: document-approval
+/requests                 -> panel: service-requests
+/module/travel-orders     -> generated panel
+/module/travel-orders/workflow -> generated workflow
 ```
 
-New aliases can be added through the routes table without modifying `routes/web.php`.
+New aliases can be added without modifying `routes/web.php`.
 
 ## Production hardening
 
